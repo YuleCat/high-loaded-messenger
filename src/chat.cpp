@@ -20,11 +20,11 @@ int main() {
 	std::mutex database_mutex;
 	std::mutex res_mutex;
 
-	// Add users for load test
 	crow::App<crow::CookieParser> app;
 	crow::mustache::set_base(".");
 	auto start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
+	// Add users for load test
 	for (int i = 1; i <= 10; ++i) {
 		auto user_number = std::to_string(i);
 		usernames.insert("User" + user_number);
