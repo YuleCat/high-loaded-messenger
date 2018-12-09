@@ -146,7 +146,7 @@ int main() {
 		if (messages_ptr != database[username].end()) {
 			auto messages = messages_ptr->second;
 			database_mutex.unlock();
-			if (messages.back().time_stamp == time_stamp || messages.size() == 0) {
+			if (messages.back().time_stamp >= time_stamp || messages.size() == 0) {
 				res_mutex.lock();
 				wait_responses[username] = RequestInfo(&response, std::chrono::steady_clock::now(), friend_name, time_stamp);
 				res_mutex.unlock();
