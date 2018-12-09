@@ -1,0 +1,11 @@
+overload:
+  enabled: true
+  package: yandextank.plugins.DataUploader
+  token_file: "token.txt"
+phantom:
+  address: localhost:18080
+  load_profile:
+    load_type: rps
+    schedule: line(100, 1700, 1m) const(1700, 5m)
+  ammofile: ammo.txt
+  instances: 10

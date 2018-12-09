@@ -1,0 +1,157 @@
+<html>
+    <head>
+        <title>Chat</title>
+
+        <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+    </head>
+    <body>
+        <table>
+            <tr><td id="username_label"></td></tr>
+            <tr>
+                <td width=250px>
+                    <input id="search_query" type="text">
+                    <button id="search">Search</button>
+                </td>
+                <td></td>
+                <td><p id="chat_label"></p></td>
+            </tr>
+            <tr>
+                <td>Users</td>
+                <td>Friends list</td>
+                <td>
+                    <input id="message" type="text">
+                    <button id="send">Send</button>
+                </td>
+            </tr>
+            <tr>
+                <td style="width: 250px; vertical-align: 0px; height: 200px; overflow-y: scroll">
+                    <div id="users_list">
+                    </div>
+                </td>
+                <td style="width: 200px; vertical-align: 0px; height: 200px; overflow-y: scroll;">
+                    <div id="friends_list">
+                    </div>
+                </td>
+                <td>
+                    <div id="chat" style="width: 250px; height: 200px; overflow-y: scroll;">
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <script>
+            var timeStamp = 0
+            var friends = []
+            var currentFriend = ""
+
+            $(document).ready(function() {
+                $("#username_label").html(getCookie("username"))
+
+                document.getElementById("message").disabled = true
+                document.getElementById("send").disabled = true
+
+                $("#search").click(searchUser)
+                $("#search_query").keyup(function() {
+                    if (event.keyCode == 13) {
+                        searchUser()
+                    }
+                })
+
+                $("#send").click(sendMessage)
+                $("#message").keyup(function() {
+                    if (event.keyCode == 13) {
+                        sendMessage()
+                    }
+                })
+
+                $.getJSON("/chat/friends").done(updateFriendsList)
+            })
+
+            function searchUser() {
+                var query = $("#search_query").val()
+                if (query.length > 0) {
+                    $("#users_list").html("")
+                    $.getJSON("/chat/search/" + query).done(loadUsersList)
+                }
+            }
+
+            function loadUsersList(data) {
+                var s = ""
+                for (var user in data.search_results) {
+                    s = "<p onclick=\'clickUser(this)\'>" + data.search_results[user] + "</p>" + s
+                }
+                $("#users_list").html(s)
+            }
+
+            function clickUser(self) {
+                if (friends.indexOf($(self).text()) == -1) {
+                    var json = { friend_name: $(self).text() }
+                    $.post("/chat/add_friend/" + $(self).text(), json).done($.getJSON("/chat/friends").done(updateFriendsList))
+                }
+                clickFriend(self)
+            }
+
+            function updateFriendsList(data) {
+                var s = ""
+                for (var friend in data.friends) {
+                    friends.push(data.friends[friend])
+                    s = "<p onclick=\'clickFriend(this)\'>" + data.friends[friend] + "</p>" + s
+                }
+                $("#friends_list").html(s)
+            }
+
+            function clickFriend(self) {
+                document.getElementById("message").disabled = false
+                document.getElementById("send").disabled = false
+
+                if (currentFriend != $(self).text()) {
+                    $("#chat").text("")
+                    timeStamp = 0
+                    currentFriend = $(self).text()
+                    $("#chat_label").text("Your (" + getCookie("username") + ") and " + currentFriend + " chat")
+                }
+
+                var json = { time_stamp: timeStamp.toString(), friend_name: currentFriend }
+                $.getJSON("/chat/load_messages/" + currentFriend + "/" + timeStamp.toString(), updateMessages).fail(updateMessages)
+            }
+
+            function updateMessages(data) {
+                if (data["messages"] != undefined) {
+                    timeStamp = data["messages"][0]["time_stamp"]
+                    console.log(timeStamp)
+
+                    var s = ""
+                    for (var i in data["messages"]) {
+                        var sender = data["messages"][i]["sender"]
+                        s = s + "<b>" + sender + ":</b> " + data["messages"][i]["message"] + "<br>"
+                    }
+                    $("#chat").html(s + $("#chat").html())
+
+                    $.getJSON("/chat/load_messages/" + currentFriend + "/" + timeStamp.toString(), updateMessages).fail(updateMessages)
+                }
+            }
+
+            function sendMessage() {
+                var message = $("#message").val()
+                if (message.length > 0) {
+                    //var newTimeStamp = new Date().getTime()
+
+                    var json = { message: message, /*time_stamp: newTimeStamp.toString(),*/ friend_name: currentFriend}
+                    $.post("/chat/send", JSON.stringify(json))
+                    $("#message").val("")
+
+                    //var json = { time_stamp: timeStamp.toString(), friend_name: currentFriend }
+                    //$.getJSON("/chat/load_messages?" + $.param(json)).done(updateMessages)
+                }
+            }
+
+            function getCookie(name) {
+                var value = "; " + document.cookie;
+                var parts = value.split("; " + name + "=");
+                if (parts.length == 2) {
+                    return parts.pop().split(";").shift();
+                }
+            }
+        </script>
+    </body>
+</html>
