@@ -6527,7 +6527,7 @@ namespace crow
 
             void userdata(void* u) { userdata_ = u; }
             void* userdata() { return userdata_; }
-			
+
         private:
             void* userdata_;
 		};
