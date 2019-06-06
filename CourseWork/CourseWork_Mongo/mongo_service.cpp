@@ -1,4 +1,4 @@
-#include "mongo_service.h"
+	#include "mongo_service.h"
 #include "constants.h"
 #include "utils.h"
 
@@ -24,20 +24,17 @@ using bsoncxx::builder::stream::open_document;
 MongoService::MongoService(std::shared_ptr<mongocxx::instance> instance,
 	std::shared_ptr<mongocxx::pool> pool)
 	: _instance(instance)
-	, _pool(pool)
-{
+	, _pool(pool) {
 }
 
 std::vector<std::string>
-MongoService::FindUsers(const std::string& query) const
-{
+MongoService::FindUsers(const std::string& query) const {
 	auto client = _pool->acquire();
 	auto usersCollection = (*client)[CHAT_DB][USERS_COLLECTION];
 
 	std::vector<std::string> result;
 	auto searchPattern = "^" + query;
-	auto findResults = usersCollection.find(
-		make_document(kvp("username", bsoncxx::types::b_regex{ searchPattern })));
+	auto findResults = usersCollection.find(make_document(kvp("username", bsoncxx::types::b_regex{ searchPattern })));
 	for (auto& item : findResults) {
 		auto element = item["username"];
 		if (element) {
@@ -50,8 +47,7 @@ MongoService::FindUsers(const std::string& query) const
 }
 
 std::string
-MongoService::GetUserId(const std::string& username) const
-{
+MongoService::GetUserId(const std::string& username) const {
 	auto client = _pool->acquire();
 	auto usersCollection = (*client)[CHAT_DB][USERS_COLLECTION];
 	auto findResult = usersCollection.find_one(document{} << "username" << username << finalize);
@@ -64,8 +60,7 @@ MongoService::GetUserId(const std::string& username) const
 }
 
 std::string
-MongoService::GetUsername(const bsoncxx::oid& userId) const
-{
+MongoService::GetUsername(const bsoncxx::oid& userId) const {
 	auto client = _pool->acquire();
 	auto usersCollection = (*client)[CHAT_DB][USERS_COLLECTION];
 	auto userDocument = usersCollection.find_one(document{} << "_id" << userId << finalize);
@@ -75,8 +70,7 @@ MongoService::GetUsername(const bsoncxx::oid& userId) const
 void MongoService::InsertMessage(const bsoncxx::oid & senderId,
 	const bsoncxx::oid & recieverId,
 	const std::string & message,
-	const bsoncxx::types::b_date & timeStamp) const
-{
+	const bsoncxx::types::b_date & timeStamp) const {
 	auto client = _pool->acquire();
 	auto conversationsCollection = (*client)[CHAT_DB][CONVERSATIONS_COLLECTION];
 
@@ -93,16 +87,14 @@ void MongoService::InsertMessage(const bsoncxx::oid & senderId,
 	conversationsCollection.insert_one(data_builder.view());
 }
 
-bool MongoService::IsUserAdded(const bsoncxx::oid & userId) const
-{
+bool MongoService::IsUserAdded(const bsoncxx::oid & userId) const {
 	auto client = _pool->acquire();
 	auto usersCollection = (*client)[CHAT_DB][USERS_COLLECTION];
 	return IsUserAdded(userId, &usersCollection);
 }
 
 std::vector<std::string>
-MongoService::LoadFriends(const bsoncxx::oid & userId) const
-{
+MongoService::LoadFriends(const bsoncxx::oid & userId) const {
 	auto client = _pool->acquire();
 	auto usersCollection = (*client)[CHAT_DB][USERS_COLLECTION];
 	auto friendsCollection = (*client)[CHAT_DB][FRIENDS_COLLECTION];
@@ -115,8 +107,7 @@ MongoService::LoadFriends(const bsoncxx::oid & userId) const
 			auto userFriends = element.get_array().value;
 			for (auto& item : userFriends) {
 				auto userFriendId = item.get_oid().value;
-				auto userFriendDocument = usersCollection.find_one(
-					document{} << "_id" << userFriendId << finalize);
+				auto userFriendDocument = usersCollection.find_one(document{} << "_id" << userFriendId << finalize);
 				if (userFriendDocument) {
 					auto userFriendName = PullUsername(userFriendDocument.value());
 					result.push_back(userFriendName);
@@ -132,8 +123,7 @@ std::vector<Message>
 MongoService::LoadMessages(const bsoncxx::oid & firstUserId,
 	const bsoncxx::oid & secondUserId,
 	const bsoncxx::types::b_date & timeStamp,
-	int messagesNumber) const
-{
+	int messagesNumber) const {
 	auto client = _pool->acquire();
 	auto conversationsCollection = (*client)[CHAT_DB][CONVERSATIONS_COLLECTION];
 
@@ -159,35 +149,38 @@ MongoService::LoadMessages(const bsoncxx::oid & firstUserId,
 		auto senderId = item["sender"].get_oid().value;
 		auto senderName = GetUsername(senderId);
 
-		Message message(senderName,
+		Message message(
+			senderName,
 			std::string(item["message"].get_utf8().value.data()),
-			item["timestamp"].get_date().to_int64());
+			item["timestamp"].get_date().to_int64()
+		);
 		result.push_back(message);
 	}
 
 	return result;
 }
 
-void MongoService::MakeFriends(const bsoncxx::oid & firstUserId,
-	const bsoncxx::oid & secondUserId)
-{
+void MongoService::MakeFriends(const bsoncxx::oid & firstUserId, const bsoncxx::oid & secondUserId) {
 	auto client = _pool->acquire();
 	auto friendsCollection = (*client)[CHAT_DB][FRIENDS_COLLECTION];
 
 	_addFriendMutex.lock();
-	friendsCollection.update_one(document{} << "_id" << firstUserId << finalize,
+	friendsCollection.update_one(
+		document{} << "_id" << firstUserId << finalize,
 		document{} << "$addToSet" << open_document
 		<< "friends" << secondUserId
-		<< close_document << finalize);
-	friendsCollection.update_one(document{} << "_id" << secondUserId << finalize,
+		<< close_document << finalize
+	);
+	friendsCollection.update_one(
+		document{} << "_id" << secondUserId << finalize,
 		document{} << "$addToSet" << open_document
 		<< "friends" << firstUserId
-		<< close_document << finalize);
+		<< close_document << finalize
+	);
 	_addFriendMutex.unlock();
 }
 
-void MongoService::TryAddUser(const std::string & username) const
-{
+void MongoService::TryAddUser(const std::string & username) const {
 	auto client = _pool->acquire();
 	auto usersCollection = (*client)[CHAT_DB][USERS_COLLECTION];
 	auto friendsCollection = (*client)[CHAT_DB][FRIENDS_COLLECTION];
@@ -200,8 +193,7 @@ void MongoService::TryAddUser(const std::string & username) const
 	}
 }
 
-void MongoService::TryAddUsers() const
-{
+void MongoService::TryAddUsers() const {
 	auto client = _pool->acquire();
 	auto usersCollection = (*client)[CHAT_DB][USERS_COLLECTION];
 	auto friendsCollection = (*client)[CHAT_DB][FRIENDS_COLLECTION];
@@ -222,8 +214,7 @@ void MongoService::TryAddUsers() const
 	}
 }
 
-void MongoService::AddUsers(mongocxx::v_noabi::collection * usersCollection) const
-{
+void MongoService::AddUsers(mongocxx::v_noabi::collection * usersCollection) const {
 	for (int i = 0; i < USERS_NUMBER; ++i) {
 		auto username = "User" + std::to_string(i + 1);
 
@@ -234,8 +225,7 @@ void MongoService::AddUsers(mongocxx::v_noabi::collection * usersCollection) con
 }
 
 const bsoncxx::v_noabi::document::value
-MongoService::CreateFriendsDocument(const bsoncxx::oid & userId) const
-{
+MongoService::CreateFriendsDocument(const bsoncxx::oid & userId) const {
 	document dataBuilder{};
 	dataBuilder << "_id" << userId;
 	auto arrayBuilder = dataBuilder << "friends" << open_array << close_array;
@@ -246,8 +236,7 @@ MongoService::CreateFriendsDocument(const bsoncxx::oid & userId) const
 
 const bsoncxx::v_noabi::document::value
 MongoService::CreateFriendsDocument(const bsoncxx::oid & userId,
-	mongocxx::cursor & users) const
-{
+	mongocxx::cursor & users) const {
 	document dataBuilder{};
 	dataBuilder << "_id" << userId;
 	auto arrayBuilder = dataBuilder << "friends" << open_array;
@@ -263,8 +252,7 @@ MongoService::CreateFriendsDocument(const bsoncxx::oid & userId,
 }
 
 const bsoncxx::v_noabi::document::value
-MongoService::CreateUserDocument(const std::string & username) const
-{
+MongoService::CreateUserDocument(const std::string & username) const {
 	document dataBuilder{};
 	dataBuilder << "username" << username;
 	auto res = dataBuilder << finalize;
@@ -274,14 +262,12 @@ MongoService::CreateUserDocument(const std::string & username) const
 
 std::string
 MongoService::PullUsername(
-	const bsoncxx::v_noabi::document::value & userDocument) const
-{
+	const bsoncxx::v_noabi::document::value & userDocument) const {
 	return std::string(userDocument.view()["username"].get_utf8().value.data());
 }
 
 bool MongoService::IsUserAdded(const std::string & username,
-	mongocxx::v_noabi::collection * usersCollection) const
-{
+	mongocxx::v_noabi::collection * usersCollection) const {
 	return usersCollection->find_one(document{}
 		<< "username" << username
 		<< finalize)
@@ -289,7 +275,6 @@ bool MongoService::IsUserAdded(const std::string & username,
 }
 
 bool MongoService::IsUserAdded(const bsoncxx::oid & userId,
-	mongocxx::v_noabi::collection * usersCollection) const
-{
+	mongocxx::v_noabi::collection * usersCollection) const {
 	return usersCollection->find_one(document{} << "_id" << userId << finalize) != bsoncxx::stdx::nullopt;
 }

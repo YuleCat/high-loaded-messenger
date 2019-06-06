@@ -43,7 +43,8 @@ int main() {
 		mongoService.TryAddUsers();
 	}
 
-	CROW_ROUTE(app, "/").methods("GET"_method)([] {
+	CROW_ROUTE(app, "/")
+		.methods("GET"_method)([] {
 		auto signInPage = crow::mustache::load(HTML_PAGES_PATH + SIGN_IN_PAGE);
 		return signInPage.render();
 		});
@@ -69,9 +70,10 @@ int main() {
 
 		CROW_LOG_INFO << "user signed in: " << requestCorrectnessInfo.username;
 		return response;
-			});
+		});
 
-	CROW_ROUTE(app, "/chat").methods("GET"_method)([&](const crow::request & req) {
+	CROW_ROUTE(app, "/chat")
+		.methods("GET"_method)([&](const crow::request & req) {
 		auto userId = GetUserId(app, req);
 		if (userId == "") {
 			return crow::response(401);
@@ -107,28 +109,26 @@ int main() {
 		LoadSearchResultsToJson(username, searchResults, response.json_value);
 
 		return response;
-			});
+		});
 
 	CROW_ROUTE(app, "/chat/add_friend/<string>")
-		.methods("POST"_method)(
-			[&](const crow::request & req, std::string friendName) {
-				auto userId = GetUserId(app, req);
-				if (userId == "") {
-					return crow::response(401);
-				}
+		.methods("POST"_method)([&](const crow::request & req, std::string friendName) {
+			auto userId = GetUserId(app, req);
+			if (userId == "") {
+				return crow::response(401);
+			}
 
-				if (!mongoService.IsUserAdded(bsoncxx::oid::oid(userId))) {
-					return crow::response(401);
-				}
+			if (!mongoService.IsUserAdded(bsoncxx::oid::oid(userId))) {
+				return crow::response(401);
+			}
 
-				auto friendId = mongoService.GetUserId(friendName);
+			auto friendId = mongoService.GetUserId(friendName);
 
-				crow::response response;
-				mongoService.MakeFriends(bsoncxx::oid::oid(userId),
-					bsoncxx::oid::oid(friendId));
+			crow::response response;
+			mongoService.MakeFriends(bsoncxx::oid::oid(userId), bsoncxx::oid::oid(friendId));
 
-				return response;
-			});
+			return response;
+		});
 
 	CROW_ROUTE(app, "/chat/friends")
 		.methods("GET"_method)([&](const crow::request & req) {
@@ -147,58 +147,57 @@ int main() {
 		LoadFriendsToJson(friends, response.json_value);
 
 		return response;
-			});
+		});
 
 	CROW_ROUTE(app, "/chat/load_messages/<string>/<string>")
-		.methods(
-			"GET"_method)([&](const crow::request & req, crow::response & response,
-				std::string friendName, std::string strTimeStamp) {
-					auto userId = GetUserId(app, req);
-					if (userId == "") {
-						response.code = 401;
-						response.end();
-						return;
-					}
+		.methods("GET"_method)([&](const crow::request & req, crow::response & response,
+		std::string friendName, std::string strTimeStamp) {
+			auto userId = GetUserId(app, req);
+			if (userId == "") {
+				response.code = 401;
+				response.end();
+				return;
+			}
 
-					if (!mongoService.IsUserAdded(bsoncxx::oid::oid(userId))) {
-						response.code = 401;
-						response.end();
-						return;
-					}
+			if (!mongoService.IsUserAdded(bsoncxx::oid::oid(userId))) {
+				response.code = 401;
+				response.end();
+				return;
+			}
 
-					if (strTimeStamp == "0") {
-						strTimeStamp = "0000000000000000";
-					}
-					auto timeStamp = bsoncxx::types::b_date(
-						std::chrono::milliseconds(std::stoll(strTimeStamp)));
+			if (strTimeStamp == "0") {
+				strTimeStamp = "0000000000000000";
+			}
+			auto timeStamp = bsoncxx::types::b_date(std::chrono::milliseconds(std::stoll(strTimeStamp)));
 
-					int messagesNumber = 10;
-					if (IS_TESTING) {
-						messagesMutex.lock();
-						messagesNumber = messagesNumbers[rand() % 100];
-						messagesMutex.unlock();
-					}
+			int messagesNumber = 10;
+			if (IS_TESTING) {
+				messagesMutex.lock();
+				messagesNumber = messagesNumbers[rand() % 100];
+				messagesMutex.unlock();
+			}
 
-					auto friendId = mongoService.GetUserId(friendName);
-					auto messages = mongoService.LoadMessages(bsoncxx::oid::oid(userId),
-						bsoncxx::oid::oid(friendId),
-						timeStamp, messagesNumber);
+			auto friendId = mongoService.GetUserId(friendName);
+			auto messages = mongoService.LoadMessages(bsoncxx::oid::oid(userId), bsoncxx::oid::oid(friendId), timeStamp, messagesNumber);
 
-					if (messages.size() == 0 && !IS_TESTING) {
-						resMutex.lock();
-						waitResponses[bsoncxx::oid::oid(userId)] =
-							RequestInfo(&response, std::chrono::steady_clock::now(),
-								friendName, timeStamp.to_int64());
-						resMutex.unlock();
-						return;
-					}
+			if (messages.size() == 0 && !IS_TESTING) {
+				resMutex.lock();
+				waitResponses[bsoncxx::oid::oid(userId)] = RequestInfo(
+					&response,
+					std::chrono::steady_clock::now(),
+					friendName,
+					timeStamp.to_int64()
+				);
+				resMutex.unlock();
+				return;
+			}
 
-					LoadMessagesToJson(messages, response.json_value);
+			LoadMessagesToJson(messages, response.json_value);
 
-					response.code = 200;
-					response.end();
-					return;
-				});
+			response.code = 200;
+			response.end();
+			return;
+		});
 
 	CROW_ROUTE(app, "/chat/send")
 		.methods("POST"_method)([&](const crow::request & req) {
@@ -219,15 +218,12 @@ int main() {
 		}
 
 		auto currentTime = std::chrono::system_clock::now() - startTime;
-		auto timeStamp = bsoncxx::types::b_date{
-			std::chrono::duration_cast<std::chrono::milliseconds>(currentTime) };
+		auto timeStamp = bsoncxx::types::b_date{ std::chrono::duration_cast<std::chrono::milliseconds>(currentTime) };
 		std::string message = json["message"].s();
 		std::string friendName = json["friend_name"].s();
 
 		auto friendId = mongoService.GetUserId(friendName);
-		mongoService.InsertMessage(bsoncxx::oid::oid(userId),
-			bsoncxx::oid::oid(friendId), message,
-			timeStamp);
+		mongoService.InsertMessage(bsoncxx::oid::oid(userId), bsoncxx::oid::oid(friendId), message, timeStamp);
 
 		if (!IS_TESTING) {
 			auto oidUserId = bsoncxx::oid::oid(userId);
@@ -236,14 +232,9 @@ int main() {
 			resMutex.lock();
 			if (waitResponses.find(oidUserId) != waitResponses.end()) {
 				if (waitResponses[oidUserId].friend_name == oidFriendId) {
-					waitResponses[oidUserId]
-						.response->json_value["messages"][0]["sender"] =
-						mongoService.GetUsername(oidUserId);
-					waitResponses[oidUserId]
-						.response->json_value["messages"][0]["time_stamp"] =
-						std::to_string(timeStamp);
-					waitResponses[oidUserId]
-						.response->json_value["messages"][0]["message"] = message;
+					waitResponses[oidUserId].response->json_value["messages"][0]["sender"] = mongoService.GetUsername(oidUserId);
+					waitResponses[oidUserId].response->json_value["messages"][0]["time_stamp"] = std::to_string(timeStamp);
+					waitResponses[oidUserId].response->json_value["messages"][0]["message"] = message;
 					waitResponses[oidUserId].response->end();
 					waitResponses.erase(oidUserId);
 				}
@@ -251,14 +242,9 @@ int main() {
 
 			if (waitResponses.find(oidFriendId) != waitResponses.end()) {
 				if (waitResponses[oidFriendId].friend_name == oidUserId) {
-					waitResponses[oidFriendId]
-						.response->json_value["messages"][0]["sender"] =
-						mongoService.GetUsername(oidUserId);
-					waitResponses[oidFriendId]
-						.response->json_value["messages"][0]["time_stamp"] =
-						std::to_string(timeStamp);
-					waitResponses[oidFriendId]
-						.response->json_value["messages"][0]["message"] = message;
+					waitResponses[oidFriendId].response->json_value["messages"][0]["sender"] = mongoService.GetUsername(oidUserId);
+					waitResponses[oidFriendId].response->json_value["messages"][0]["time_stamp"] = std::to_string(timeStamp);
+					waitResponses[oidFriendId].response->json_value["messages"][0]["message"] = message;
 					waitResponses[oidFriendId].response->end();
 					waitResponses.erase(oidFriendId);
 				}
@@ -267,12 +253,11 @@ int main() {
 		}
 
 		return response;
-			});
+		});
 
 	if (IS_TESTING) {
 		app.loglevel(crow::LogLevel::Warning);
-	}
-	else {
+	} else {
 		app.loglevel(crow::LogLevel::Info);
 	}
 

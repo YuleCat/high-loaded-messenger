@@ -14,11 +14,10 @@ const std::string HTML_PAGES_PATH = "../../static/";
 
 std::set<std::string> usernames;
 std::unordered_map<std::string, std::set<std::string>> friends;
-std::unordered_map<std::string,	std::unordered_map<std::string, std::vector<Message>>> database;
+std::unordered_map<std::string, std::unordered_map<std::string, std::vector<Message>>> database;
 std::unordered_map<std::string, RequestInfo> wait_responses;
 
-int main()
-{
+int main() {
 	srand(time(NULL));
 
 	auto messages_numbers = std::vector<int>(100);
@@ -93,7 +92,7 @@ int main()
 		load_friends(username, friends, response.json_value);
 
 		return response;
-			});
+		});
 
 	CROW_ROUTE(app, "/chat/search/<string>")
 		.methods("GET"_method)([&app](const crow::request & req, std::string query) {
@@ -108,26 +107,25 @@ int main()
 		find_users(query, username, usernames, response.json_value);
 
 		return response;
-			});
+		});
 
 	CROW_ROUTE(app, "/chat/add_friend/<string>")
-		.methods("POST"_method)(
-			[&app](const crow::request & req, std::string friend_name) {
-				auto username = get_username(app, req);
-				if (username == "") {
-					return crow::response(401);
-				}
-				usernames.insert(username);
+		.methods("POST"_method)([&app](const crow::request & req, std::string friend_name) {
+		auto username = get_username(app, req);
+		if (username == "") {
+			return crow::response(401);
+		}
+		usernames.insert(username);
 
-				crow::response response;
+		crow::response response;
 
-				friends[username].insert(friend_name);
-				friends[friend_name].insert(username);
+		friends[username].insert(friend_name);
+		friends[friend_name].insert(username);
 
-				// load_friends(username, friends, response.json_value);
+		// load_friends(username, friends, response.json_value);
 
-				return response;
-			});
+		return response;
+	});
 
 	CROW_ROUTE(app, "/chat/friends")
 		.methods("GET"_method)([&app](const crow::request & req) {
@@ -142,122 +140,111 @@ int main()
 		load_friends(username, friends, response.json_value);
 
 		return response;
-			});
+		});
 
 	CROW_ROUTE(app, "/chat/load_messages/<string>/<string>")
-		.methods("GET"_method)([&app,
-			&database_mutex,
-			&res_mutex,
-			&messages_mutex,
-			&messages_numbers](const crow::request & req,
-				crow::response & response,
-				std::string friend_name,
-				std::string str_time_stamp) {
-					auto username = get_username(app, req);
-					if (username == "") {
-						response.code = 401;
-						response.end();
-						return;
-					}
-					usernames.insert(username);
+		.methods("GET"_method)
+		([&app, &database_mutex, &res_mutex, &messages_mutex, &messages_numbers]
+		(const crow::request & req, crow::response & response, std::string friend_name, std::string str_time_stamp) {
+		auto username = get_username(app, req);
+		if (username == "") {
+			response.code = 401;
+			response.end();
+			return;
+		}
+		usernames.insert(username);
 
-					long long time_stamp = std::stoll(str_time_stamp);
+		long long time_stamp = std::stoll(str_time_stamp);
 
-					database_mutex.lock();
-					auto messages_ptr = database[username].find(friend_name);
-					if (messages_ptr != database[username].end()) {
-						auto messages = messages_ptr->second;
-						database_mutex.unlock();
-						if (messages.back().time_stamp == time_stamp || messages.size() == 0) {
-							/*res_mutex.lock();
-							  wait_responses[username] = RequestInfo(&response,
-							  std::chrono::steady_clock::now(), friend_name, time_stamp);
-							  res_mutex.unlock();*/
-										return;
-						}
+		database_mutex.lock();
+		auto messages_ptr = database[username].find(friend_name);
+		if (messages_ptr != database[username].end()) {
+			auto messages = messages_ptr->second;
+			database_mutex.unlock();
+			if (messages.back().time_stamp == time_stamp || messages.size() == 0) {
+				/*res_mutex.lock();
+					wait_responses[username] = RequestInfo(&response,
+					std::chrono::steady_clock::now(), friend_name, time_stamp);
+					res_mutex.unlock();*/
+				return;
+			}
 
-						auto possibility = rand() % 100;
-						messages_mutex.lock();
-						auto messages_number = messages_numbers[possibility];
-						messages_mutex.unlock();
+			auto possibility = rand() % 100;
+			messages_mutex.lock();
+			auto messages_number = messages_numbers[possibility];
+			messages_mutex.unlock();
 
-						for (int i = messages.size() - 1; i >= 0; --i) {
-							if (messages[i].time_stamp > time_stamp) { // && messages_number > 0) {
-								response.json_value["messages"][messages.size() - i - 1]["sender"] = messages[i].sender;
-								response
-									.json_value["messages"][messages.size() - i - 1]["message"]
-									= messages[i].message;
-								response
-									.json_value["messages"][messages.size() - i - 1]["time_stamp"]
-									= std::to_string(messages[i].time_stamp);
+			for (int i = messages.size() - 1; i >= 0; --i) {
+				if (messages[i].time_stamp > time_stamp) { // && messages_number > 0) {
+					response.json_value["messages"][messages.size() - i - 1]["sender"] = messages[i].sender;
+					response.json_value["messages"][messages.size() - i - 1]["message"] = messages[i].message;
+					response.json_value["messages"][messages.size() - i - 1]["time_stamp"] = std::to_string(messages[i].time_stamp);
 
-								messages_number--;
-							}
-						}
-					}
-					else {
-						database_mutex.unlock();
-						/*res_mutex.lock();
-						wait_responses[username] = RequestInfo(&response,
-						std::chrono::steady_clock::now(), friend_name, time_stamp);
-						res_mutex.unlock();
-						return;*/
-					}
+					messages_number--;
+				}
+			}
+		} else {
+			database_mutex.unlock();
+			/*res_mutex.lock();
+			wait_responses[username] = RequestInfo(&response,
+			std::chrono::steady_clock::now(), friend_name, time_stamp);
+			res_mutex.unlock();
+			return;*/
+		}
 
-					response.code = 200;
-					response.end();
-					return;
-			});
+		response.code = 200;
+		response.end();
+		return;
+		});
 
 	CROW_ROUTE(app, "/chat/send")
-		.methods("POST"_method)([&app, &start_time, &database_mutex, &res_mutex](
-			const crow::request & req) {
-				auto username = get_username(app, req);
-				if (username == "") {
-					return crow::response(401);
-				}
-				usernames.insert(username);
+		.methods("POST"_method)([&app, &start_time, &database_mutex, &res_mutex](const crow::request & req) {
+		auto username = get_username(app, req);
+		if (username == "") {
+			return crow::response(401);
+		}
+		usernames.insert(username);
 
-				crow::response response;
+		crow::response response;
 
-				auto json = crow::json::load(req.body);
-				if (!json.has("message") || !json.has("friend_name")) {
-					return crow::response(400);
-				}
+		auto json = crow::json::load(req.body);
+		if (!json.has("message") || !json.has("friend_name")) {
+			return crow::response(400);
+		}
 
-				std::string message = json["message"].s();
-				std::string friend_name = json["friend_name"].s();
-				auto time_stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-					std::chrono::system_clock::now().time_since_epoch()).count() - start_time;
+		std::string message = json["message"].s();
+		std::string friend_name = json["friend_name"].s();
+		auto time_stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::system_clock::now().time_since_epoch()).count() - start_time;
 
-				Message message_info(time_stamp, message, username);
-				database_mutex.lock();
-				database[username][friend_name].push_back(message_info);
-				database[friend_name][username].push_back(message_info);
-				database_mutex.unlock();
+		Message message_info(time_stamp, message, username);
+		database_mutex.lock();
+		database[username][friend_name].push_back(message_info);
+		database[friend_name][username].push_back(message_info);
+		database_mutex.unlock();
 
-				/*res_mutex.lock();
-				if (wait_responses.find(username) != wait_responses.end()) {
-					if (wait_responses[username].friend_name == friend_name) {
-						  wait_responses[username].response->json_value["messages"][0]["sender"] = username;
-						  wait_responses[username].response->json_value["messages"][0]["time_stamp"] = std::to_string(time_stamp);
-						  wait_responses[username].response->json_value["messages"][0]["message"] = message; wait_responses[username].response->end();
-						  wait_responses.erase(username);
-					}
-				}
+		/*res_mutex.lock();
+		if (wait_responses.find(username) != wait_responses.end()) {
+			if (wait_responses[username].friend_name == friend_name) {
+					wait_responses[username].response->json_value["messages"][0]["sender"] = username;
+					wait_responses[username].response->json_value["messages"][0]["time_stamp"] = std::to_string(time_stamp);
+					wait_responses[username].response->json_value["messages"][0]["message"] = message; wait_responses[username].response->end();
+					wait_responses.erase(username);
+			}
+		}
 
-				if (wait_responses.find(friend_name) != wait_responses.end()) {
-					if (wait_responses[friend_name].friend_name == username) {
-						  wait_responses[friend_name].response->json_value["messages"][0]["sender"] = username;
-						  wait_responses[friend_name].response->json_value["messages"][0]["time_stamp"] = std::to_string(time_stamp);
-						  wait_responses[friend_name].response->json_value["messages"][0]["message"] = message; wait_responses[friend_name].response->end();
-						  wait_responses.erase(friend_name);
-					}
-				}
-				res_mutex.unlock();*/
+		if (wait_responses.find(friend_name) != wait_responses.end()) {
+			if (wait_responses[friend_name].friend_name == username) {
+					wait_responses[friend_name].response->json_value["messages"][0]["sender"] = username;
+					wait_responses[friend_name].response->json_value["messages"][0]["time_stamp"] = std::to_string(time_stamp);
+					wait_responses[friend_name].response->json_value["messages"][0]["message"] = message; wait_responses[friend_name].response->end();
+					wait_responses.erase(friend_name);
+			}
+		}
+		res_mutex.unlock();*/
 
-				return response;
-			});
+		return response;
+		});
 
 	app.loglevel(crow::LogLevel::Info);
 

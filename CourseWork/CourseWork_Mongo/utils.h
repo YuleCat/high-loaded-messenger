@@ -19,8 +19,7 @@ struct Message {
 	Message(std::string sender, std::string message, long long timeStamp)
 		: sender(sender)
 		, message(message)
-		, timeStamp(timeStamp)
-	{
+		, timeStamp(timeStamp) {
 	}
 };
 
@@ -39,14 +38,12 @@ struct RequestInfo {
 		: response(res)
 		, birth_time(birth_time)
 		, friend_name(friend_name)
-		, time_stamp(time_stamp)
-	{
+		, time_stamp(time_stamp) {
 	}
 };
 
 inline std::vector<int>
-CreateMessagesNumbers()
-{
+CreateMessagesNumbers() {
 	auto messagesCount = std::vector<int>(100);
 	for (int i = 0; i < 100; ++i) {
 		if (i + 1 <= 25)
